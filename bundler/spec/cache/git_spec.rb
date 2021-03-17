@@ -24,6 +24,7 @@ RSpec.describe "bundle cache with git" do
     bundle "config set cache_all true"
     bundle :cache
     expect(bundled_app("vendor/cache/foo-1.0-#{ref}")).to exist
+    expect(bundled_app("vendor/cache/foo-1.0-#{ref}/.git")).not_to exist
     expect(bundled_app("vendor/cache/foo-1.0-#{ref}/.bundlecache")).to be_file
 
     FileUtils.rm_rf lib_path("foo-1.0")
@@ -146,7 +147,7 @@ RSpec.describe "bundle cache with git" do
     expect(out).to eq("LOCAL")
   end
 
-  it "copies repository to vendor cache, including submodules" do
+  it "copies repository to vendor cache" do
     build_git "submodule", "1.0"
 
     git = build_git "has_submodule", "1.0" do |s|
@@ -167,7 +168,6 @@ RSpec.describe "bundle cache with git" do
     bundle :cache
 
     expect(bundled_app("vendor/cache/has_submodule-1.0-#{ref}")).to exist
-    expect(bundled_app("vendor/cache/has_submodule-1.0-#{ref}/submodule-1.0")).to exist
     expect(the_bundle).to include_gems "has_submodule 1.0"
   end
 
