@@ -111,6 +111,12 @@ module Bundler
 
           Bundler.ui.info "Fetching #{credential_filtered_uri}"
 
+          if path.join(".git/shallow").exist? && full_clone?
+            SharedHelpers.filesystem_access(path) do |p|
+              FileUtils.rm_rf(p)
+            end
+          end
+
           unless path.exist?
             SharedHelpers.filesystem_access(path.dirname) do |p|
               FileUtils.mkdir_p(p)
