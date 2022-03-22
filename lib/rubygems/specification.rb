@@ -1265,7 +1265,14 @@ class Gem::Specification < Gem::BasicSpecification
     rescue ArgumentError => e
       raise unless e.message.include?("YAML")
 
+      # This gemspec was generated with old YAML emitter that included references
+      # to YAML::PrivateType, due to an bug where nil => null.
+      #
+      # If we don't have the constant, Marshal.load blows up. So we create the
+      # necessary constants.
+
       Object.const_set "YAML", Psych
+      YAML.const_set "PrivateType", Class.new
       Marshal.load str
     end
 

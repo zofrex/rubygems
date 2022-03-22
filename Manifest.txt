@@ -424,7 +424,6 @@ lib/rubygems/package/tar_writer.rb
 lib/rubygems/package_task.rb
 lib/rubygems/path_support.rb
 lib/rubygems/platform.rb
-lib/rubygems/psych_additions.rb
 lib/rubygems/psych_tree.rb
 lib/rubygems/query_utils.rb
 lib/rubygems/rdoc.rb
