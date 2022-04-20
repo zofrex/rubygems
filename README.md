@@ -1,4 +1,4 @@
-# RubyGems [![Travis Build Status](https://secure.travis-ci.org/rubygems/rubygems.svg?branch=master)](http://travis-ci.org/rubygems/rubygems) [![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/github/rubygems/rubygems?branch=master&svg=true)](https://ci.appveyor.com/project/rubygems/rubygems?branch=master) [![Maintainability](https://api.codeclimate.com/v1/badges/30f913e9c2dd932132c1/maintainability)](https://codeclimate.com/github/rubygems/rubygems/maintainability)
+# RubyGems [![Maintainability](https://api.codeclimate.com/v1/badges/30f913e9c2dd932132c1/maintainability)](https://codeclimate.com/github/rubygems/rubygems/maintainability)
 
 RubyGems is a package management framework for Ruby.
 
@@ -6,7 +6,7 @@ A package (also known as a library) contains a set of functionality that can be 
 We call these packages "gems" and RubyGems is a tool to install, create, manage and load these packages in your Ruby environment.
 
 RubyGems is also a client for [RubyGems.org](https://rubygems.org), a public repository of Gems that allows you to publish a Gem
-that can be shared and used by other developers. See our guide on publishing a Gem at [guides.rubygems.org](http://guides.rubygems.org/publishing/)
+that can be shared and used by other developers. See our guide on publishing a Gem at [guides.rubygems.org](https://guides.rubygems.org/publishing/)
 
 ## Getting Started
 
@@ -23,7 +23,7 @@ Finally, inside your Ruby program, load the Nokogiri gem and start parsing your 
 
     Nokogiri.XML('<h1>Hello World</h1>')
 
-For more information about how to use RubyGems, see our RubyGems basics guide at [guides.rubygems.org](http://guides.rubygems.org/rubygems-basics/)
+For more information about how to use RubyGems, see our RubyGems basics guide at [guides.rubygems.org](https://guides.rubygems.org/rubygems-basics/)
 
 ## Requirements
 
@@ -33,20 +33,24 @@ For more information about how to use RubyGems, see our RubyGems basics guide at
 
 ## Installation
 
-RubyGems is likely already installed in your Ruby environment, you can check by running `gem --version` in your terminal emulator.
-In some cases your OS's package manager may install RubyGems as a separate package from Ruby. It's recommended to check
-with your OS's package manager before installing RubyGems manually.
+RubyGems is already installed in your Ruby environment, you can check the version you have installed by running `gem --version` in your terminal emulator.
+
+In some cases Ruby & RubyGems may be provided as OS packages. This is not a
+recommended way to use Ruby & RubyGems. It's better to use a Ruby Version
+Manager, such as [rbenv](https://github.com/rbenv/rbenv) or
+[chruby](https://github.com/postmodern/chruby). If you still want to use the
+version provided by your OS package manager, please also use your OS package
+manager to upgrade rubygems, and disregard any other installation instructions
+given below.
 
 If you would like to manually install RubyGems:
 
 * Download from https://rubygems.org/pages/download, unpack, and `cd` into RubyGems' src
-* OR clone this repository and `cd` into the repository (make sure to run `git submodule update --init`)
+* OR clone this repository and `cd` into the repository
 
 Install RubyGems by running:
 
     $ ruby setup.rb
-
-Note: You may need to run the install script with admin/root privileges.
 
 For more details and other options, see:
 
@@ -58,17 +62,15 @@ To upgrade to the latest RubyGems, run:
 
     $ gem update --system
 
-Note: You might need to run the command as an administrator or root user.
-
 See [UPGRADING](UPGRADING.md) for more details and alternative instructions.
 
 ## Documentation
 
 RubyGems uses [rdoc](https://github.com/rdoc/rdoc) for documentation. A compiled set of the docs
-can be viewed online at [rubydoc](http://www.rubydoc.info/github/rubygems/rubygems).
+can be viewed online at [rubydoc](https://www.rubydoc.info/github/rubygems/rubygems).
 
 RubyGems also provides a comprehensive set of guides which covers numerous topics such as
-creating a new gem, security practices and other resources at http://guides.rubygems.org
+creating a new gem, security practices and other resources at https://guides.rubygems.org
 
 ## Getting Help
 

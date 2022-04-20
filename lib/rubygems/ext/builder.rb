@@ -5,19 +5,10 @@
 # See LICENSE.txt for permissions.
 #++
 
-require 'rubygems/user_interaction'
+require_relative '../user_interaction'
 
 class Gem::Ext::Builder
-
   include Gem::UserInteraction
-
-  ##
-  # The builder shells-out to run various commands after changing the
-  # directory.  This means multiple installations cannot be allowed to build
-  # extensions in parallel as they may change each other's directories leading
-  # to broken extensions or failed installations.
-
-  CHDIR_MUTEX = Mutex.new # :nodoc:
 
   attr_accessor :build_args # :nodoc:
 
@@ -26,74 +17,79 @@ class Gem::Ext::Builder
     $1.downcase
   end
 
-  def self.make(dest_path, results)
-    unless File.exist? 'Makefile'
+  def self.make(dest_path, results, make_dir = Dir.pwd)
+    unless File.exist? File.join(make_dir, 'Makefile')
       raise Gem::InstallError, 'Makefile not found'
     end
 
     # try to find make program from Ruby configure arguments first
     RbConfig::CONFIG['configure_args'] =~ /with-make-prog\=(\w+)/
-    make_program = ENV['MAKE'] || ENV['make'] || $1
-    unless make_program
-      make_program = (/mswin/ =~ RUBY_PLATFORM) ? 'nmake' : 'make'
+    make_program_name = ENV['MAKE'] || ENV['make'] || $1
+    unless make_program_name
+      make_program_name = (/mswin/ =~ RUBY_PLATFORM) ? 'nmake' : 'make'
     end
+    make_program = Shellwords.split(make_program_name)
 
-    destdir = '"DESTDIR=%s"' % ENV['DESTDIR']
+    # The installation of the bundled gems is failed when DESTDIR is empty in mswin platform.
+    destdir = (/\bnmake/i !~ make_program_name || ENV['DESTDIR'] && ENV['DESTDIR'] != "") ? 'DESTDIR=%s' % ENV['DESTDIR'] : ''
 
     ['clean', '', 'install'].each do |target|
       # Pass DESTDIR via command line to override what's in MAKEFLAGS
       cmd = [
-        make_program,
+        *make_program,
         destdir,
-        target
-      ].join(' ').rstrip
+        target,
+      ].reject(&:empty?)
       begin
-        run(cmd, results, "make #{target}".rstrip)
+        run(cmd, results, "make #{target}".rstrip, make_dir)
       rescue Gem::InstallError
         raise unless target == 'clean' # ignore clean failure
       end
     end
   end
 
-  def self.redirector
-    warn "#{caller[0]}: Use IO.popen(..., err: [:child, :out])"
-    '2>&1'
-  end
-
-  def self.run(command, results, command_name = nil)
+  def self.run(command, results, command_name = nil, dir = Dir.pwd)
     verbose = Gem.configuration.really_verbose
 
     begin
       rubygems_gemdeps, ENV['RUBYGEMS_GEMDEPS'] = ENV['RUBYGEMS_GEMDEPS'], nil
       if verbose
-        puts("current directory: #{Dir.pwd}")
+        puts("current directory: #{dir}")
         p(command)
       end
-      results << "current directory: #{Dir.pwd}"
-      results << (command.respond_to?(:shelljoin) ? command.shelljoin : command)
+      results << "current directory: #{dir}"
+      require "shellwords"
+      results << command.shelljoin
 
-      redirections = verbose ? {} : {err: [:child, :out]}
-      IO.popen(command, "r", redirections) do |io|
-        if verbose
-          IO.copy_stream(io, $stdout)
-        else
-          results << io.read
-        end
+      require "open3"
+      # Set $SOURCE_DATE_EPOCH for the subprocess.
+      env = {'SOURCE_DATE_EPOCH' => Gem.source_date_epoch_string}
+      output, status = begin
+                         Open3.capture2e(env, *command, :chdir => dir)
+                       rescue => error
+                         raise Gem::InstallError, "#{command_name || class_name} failed#{error.message}"
+                       end
+      if verbose
+        puts output
+      else
+        results << output
       end
-    rescue => error
-      raise Gem::InstallError, "#{command_name || class_name} failed#{error.message}"
     ensure
       ENV['RUBYGEMS_GEMDEPS'] = rubygems_gemdeps
     end
 
-    unless $?.success?
+    unless status.success?
       results << "Building has failed. See above output for more information on the failure." if verbose
+    end
 
+    yield(status, results) if block_given?
+
+    unless status.success?
       exit_reason =
-        if $?.exited?
-          ", exit code #{$?.exitstatus}"
-        elsif $?.signaled?
-          ", uncaught signal #{$?.termsig}"
+        if status.exited?
+          ", exit code #{status.exitstatus}"
+        elsif status.signaled?
+          ", uncaught signal #{status.termsig}"
         end
 
       raise Gem::InstallError, "#{command_name || class_name} failed#{exit_reason}"
@@ -110,7 +106,7 @@ class Gem::Ext::Builder
     @build_args = build_args
     @gem_dir    = spec.full_gem_path
 
-    @ran_rake   = false
+    @ran_rake = false
   end
 
   ##
@@ -127,6 +123,9 @@ class Gem::Ext::Builder
       Gem::Ext::RakeBuilder
     when /CMakeLists.txt/ then
       Gem::Ext::CmakeBuilder
+    when /Cargo.toml/ then
+      # We use the spec name here to ensure we invoke the correct init function later
+      Gem::Ext::CargoBuilder.new(@spec)
     else
       build_error("No builder for extension '#{extension}'")
     end
@@ -162,22 +161,10 @@ EOF
     begin
       FileUtils.mkdir_p dest_path
 
-      CHDIR_MUTEX.synchronize do
-        pwd = Dir.getwd
-        Dir.chdir extension_dir
-        begin
-          results = builder.build(extension, dest_path,
-                                  results, @build_args, lib_dir)
+      results = builder.build(extension, dest_path,
+                              results, @build_args, lib_dir, extension_dir)
 
-          verbose { results.join("\n") }
-        ensure
-          begin
-            Dir.chdir pwd
-          rescue SystemCallError
-            Dir.chdir dest_path
-          end
-        end
-      end
+      verbose { results.join("\n") }
 
       write_gem_make_out results.join "\n"
     rescue => e
@@ -202,6 +189,7 @@ EOF
 
     dest_path = @spec.extension_dir
 
+    require "fileutils"
     FileUtils.rm_f @spec.gem_build_complete_path
 
     @spec.extensions.each do |extension|
@@ -227,5 +215,4 @@ EOF
 
     destination
   end
-
 end

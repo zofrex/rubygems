@@ -1,17 +1,51 @@
-# -*- ruby -*-
+RakeFileUtils.verbose_flag = false
 
 require 'rubygems'
 require 'rubygems/package_task'
 require "rake/testtask"
-require 'psych'
 
 desc "Setup Rubygems dev environment"
-task :setup => ["bundler:checkout"] do
-  gemspec = Gem::Specification.load(File.expand_path("../rubygems-update.gemspec", __FILE__))
+task :setup do
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "install", "--gemfile=bundler/tool/bundler/dev_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--gemfile=bundler/tool/bundler/release_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--gemfile=bundler/tool/bundler/test_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--gemfile=bundler/tool/bundler/rubocop_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--gemfile=bundler/tool/bundler/rubocop23_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--gemfile=bundler/tool/bundler/rubocop24_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--gemfile=bundler/tool/bundler/standard_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--gemfile=bundler/tool/bundler/standard23_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--gemfile=bundler/tool/bundler/standard24_gems.rb"
+end
 
-  gemspec.dependencies.each do |dep|
-    sh "gem install '#{dep.name}:#{dep.requirement.to_s}' --conservative --no-document"
-  end
+desc "Update Rubygems dev environment"
+task :update do
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--gemfile=bundler/tool/bundler/dev_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--update", "--gemfile=bundler/tool/bundler/release_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--update", "--gemfile=bundler/tool/bundler/test_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--update", "--gemfile=bundler/tool/bundler/rubocop_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--update", "--gemfile=bundler/tool/bundler/rubocop23_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--update", "--gemfile=bundler/tool/bundler/rubocop24_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--update", "--gemfile=bundler/tool/bundler/standard_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--update", "--gemfile=bundler/tool/bundler/standard23_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "lock", "--update", "--gemfile=bundler/tool/bundler/standard24_gems.rb"
+end
+
+desc "Update the locked bundler version in dev environment"
+task :update_locked_bundler do |_, args|
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/dev_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/release_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/test_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/rubocop_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/rubocop23_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/rubocop24_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/standard_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/standard23_gems.rb"
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", "--bundler", "--gemfile=bundler/tool/bundler/standard24_gems.rb"
+end
+
+desc "Update specific development dependencies"
+task :update_dev_dep do |_, args|
+  sh "ruby", "-I", "lib", "bundler/spec/support/bundle.rb", "update", *args, "--gemfile=bundler/tool/bundler/dev_gems.rb"
 end
 
 desc "Setup git hooks"
@@ -20,13 +54,22 @@ task :git_hooks do
 end
 
 Rake::TestTask.new do |t|
-  t.ruby_opts = %w[--disable-gems -w]
-  t.ruby_opts << '-rdevkit' if Gem.win_platform?
+  t.ruby_opts = %w[-w]
+  t.ruby_opts << '-rdevkit' if RbConfig::CONFIG['host_os'].include?('mingw')
 
   t.libs << "test"
   t.libs << "bundler/lib"
 
   t.test_files = FileList['test/**/test_*.rb']
+end
+
+namespace 'test' do
+  desc 'Run each test isolatedly by specifying the relative test file path'
+  task 'isolated' do
+    FileList['test/**/test_*.rb'].each do |file|
+      sh Gem.ruby, '-Ilib:test:bundler/lib', file
+    end
+  end
 end
 
 task :default => :test
@@ -41,9 +84,9 @@ RDoc::Task.new :rdoc => 'docs', :clobber_rdoc => 'clobber_docs' do |doc|
   doc.title  = "RubyGems #{v} API Documentation"
 
   rdoc_files = Rake::FileList.new %w[lib bundler/lib]
-  rdoc_files.add %w[History.txt LICENSE.txt MIT.txt CODE_OF_CONDUCT.md CONTRIBUTING.rdoc
-                    MAINTAINERS.txt Manifest.txt POLICIES.rdoc README.md UPGRADING.rdoc bundler/CHANGELOG.md
-                    bundler/CODE_OF_CONDUCT.md bundler/CONTRIBUTING.md bundler/LICENSE.md bundler/README.md
+  rdoc_files.add %w[CHANGELOG.md LICENSE.txt MIT.txt CODE_OF_CONDUCT.md CONTRIBUTING.md
+                    MAINTAINERS.txt Manifest.txt POLICIES.md README.md UPGRADING.md bundler/CHANGELOG.md
+                    bundler/doc/contributing/README.md bundler/LICENSE.md bundler/README.md
                     hide_lib_for_update/note.txt].map(&:freeze)
 
   doc.rdoc_files = rdoc_files
@@ -51,43 +94,72 @@ RDoc::Task.new :rdoc => 'docs', :clobber_rdoc => 'clobber_docs' do |doc|
   doc.rdoc_dir = 'doc'
 end
 
-begin
-  require "automatiek"
+# No big deal if Automatiek is not available. This might be just because
+# `rake` is executed from release tarball.
+if File.exist?("util/automatiek.rake")
+  load "util/automatiek.rake"
 
+  # We currently ship Molinillo master branch as of
+  # https://github.com/CocoaPods/Molinillo/commit/7cc27a355e861bdf593e2cde7bf1bca3daae4303
   Automatiek::RakeTask.new("molinillo") do |lib|
+    lib.version = "master"
     lib.download = { :github => "https://github.com/CocoaPods/Molinillo" }
     lib.namespace = "Molinillo"
     lib.prefix = "Gem::Resolver"
     lib.vendor_lib = "lib/rubygems/resolver/molinillo"
+    lib.license_path = "LICENSE"
   end
-rescue LoadError
-  namespace :vendor do
-    task(:molinillo) { abort "Install the automatiek gem to be able to vendor gems." }
+
+  desc "Vendor a specific version of tsort"
+  Automatiek::RakeTask.new("tsort") do |lib|
+    lib.version = "master"
+    lib.download = { :github => "https://github.com/ruby/tsort" }
+    lib.namespace = "TSort"
+    lib.prefix = "Gem"
+    lib.vendor_lib = "lib/rubygems/tsort"
+    lib.license_path = "LICENSE.txt"
+  end
+
+  # We currently ship optparse 0.2.0 plus the following changes:
+  # * Remove top aliasing the `::OptParse` constant to `OptionParser`, since we
+  #   don't need it and it triggers redefinition warnings since the default
+  #   optparse gem also does the aliasing.
+  # * Restore support for old versions of `did_you_mean` so that our vendored
+  #   copy works consistently in all supported rubies. This one can be removed
+  #   once we drop ruby 2.4 support, since newer versions include a version of
+  #   `did_you_mean` that does not require any changes.
+  # * Add an empty .document file to the library's root path to hint RDoc that
+  #   this library should not be documented.
+  desc "Vendor a specific version of optparse"
+  Automatiek::RakeTask.new("optparse") do |lib|
+    lib.version = "master"
+    lib.download = { :github => "https://github.com/ruby/optparse" }
+    lib.namespace = "OptionParser"
+    lib.prefix = "Gem"
+    lib.vendor_lib = "lib/rubygems/optparse"
+    lib.license_path = "COPYING"
   end
 end
 
-desc "Run rubocop"
-task(:rubocop) do
-  sh "util/rubocop"
+namespace :rubocop do
+  desc "Run rubocop for RubyGems. Pass positional arguments, e.g. -a, as Rake arguments."
+  task(:rubygems) do |_, args|
+    sh "util/rubocop", *args
+  end
+
+  desc "Run rubocop for Bundler. Pass positional arguments, e.g. -a, as Rake arguments."
+  task(:bundler) do |_, args|
+    sh "bundler/bin/rubocop", *args
+  end
 end
 
-desc "Run a test suite bisection"
-task(:bisect) do
-  seed = begin
-           Integer(ENV["SEED"])
-         rescue
-           abort "Specify the failing seed as the SEED environment variable"
-         end
-
-  gemdir = `gem env gemdir`.chomp
-  sh "SEED=#{seed} MTB_VERBOSE=2 util/bisect -Ilib:bundler/lib:test:#{gemdir}/gems/minitest-server-1.0.5/lib test"
-end
+task rubocop: %w[rubocop:rubygems rubocop:bundler]
 
 # --------------------------------------------------------------------
 # Creating a release
 
-task :prerelease => %w[clobber test bundler:build_metadata check_deprecations]
-task :postrelease => %w[bundler:build_metadata:clean upload guides:publish blog:publish]
+task :prerelease => %w[clobber install_release_dependencies test bundler:build_metadata check_deprecations]
+task :postrelease => %w[upload guides:publish blog:publish bundler:build_metadata:clean]
 
 desc "Check for deprecated methods with expired deprecation horizon"
 task :check_deprecations do
@@ -98,9 +170,35 @@ task :check_deprecations do
   end
 end
 
+desc "Install release dependencies"
+task :install_release_dependencies do
+  require_relative "util/release"
+
+  Release.install_dependencies!
+end
+
+desc "Prepare a release"
+task :prepare_release, [:version] => [:install_release_dependencies] do |_t, opts|
+  require_relative "util/release"
+
+  Release.new(opts[:version] || v.to_s).prepare!
+end
+
 desc "Install rubygems to local system"
-task :install => :package do
-  sh "gem install pkg/rubygems-update-#{v}.gem && update_rubygems"
+task :install => [:clear_package, :package] do
+  sh "ruby -Ilib bin/gem install --no-document pkg/rubygems-update-#{v}.gem --backtrace && update_rubygems --no-document --backtrace"
+end
+
+desc "Clears previously built package"
+task :clear_package do
+  rm_rf "pkg"
+end
+
+desc "Generates the changelog for a specific target version"
+task :generate_changelog, [:version] do |_t, opts|
+  require_relative "util/release"
+
+  Release.for_rubygems(opts[:version]).cut_changelog!
 end
 
 desc "Release rubygems-#{v}"
@@ -149,32 +247,42 @@ file "pkg/rubygems-#{v}.tgz" => "pkg/rubygems-#{v}" do
       sh "7z a -ttar  rubygems-#{v}.tar rubygems-#{v}"
       sh "7z a -tgzip rubygems-#{v}.tgz rubygems-#{v}.tar"
     else
-      sh "tar -czf rubygems-#{v}.tgz rubygems-#{v}"
+      tar_version = `tar --version`
+      if tar_version =~ /bsdtar/
+        # bsdtar, as used by at least FreeBSD and macOS, uses `--uname` and `--gname`.
+        sh "tar -czf rubygems-#{v}.tgz --uname=rubygems:0 --gname=rubygems:0 rubygems-#{v}"
+      else # If a third variant is added, change this line to: elsif tar_version =~ /GNU tar/
+        # GNU Tar, as used by many Linux distros, uses `--owner` and `--group`.
+        sh "tar -czf rubygems-#{v}.tgz --owner=rubygems:0 --group=rubygems:0 rubygems-#{v}"
+      end
     end
   end
 end
 
+desc "Upload the release to GitHub releases"
+task :upload_to_github do
+  require_relative "util/release"
+
+  Release.for_rubygems(v).create_for_github!
+end
+
 desc "Upload release to S3"
 task :upload_to_s3 do
-  begin
-    require "aws-sdk-s3"
-  rescue LoadError
-    abort "Install the aws-sdk-s3 gem to be able to upload gems to rubygems.org."
-  end
+  require "aws-sdk-s3"
 
   s3 = Aws::S3::Resource.new(region:'us-west-2')
   %w[zip tgz].each do |ext|
     obj = s3.bucket('oregon.production.s3.rubygems.org').object("rubygems/rubygems-#{v}.#{ext}")
-    obj.upload_file("pkg/rubygems-#{v}.#{ext}")
+    obj.upload_file("pkg/rubygems-#{v}.#{ext}", acl: 'public-read')
   end
 end
 
 desc "Upload release to rubygems.org"
-task :upload => %w[upload_to_s3]
+task :upload => %w[upload_to_github upload_to_s3]
 
 directory '../guides.rubygems.org' do
   sh 'git', 'clone',
-     'git@github.com:rubygems/guides.git',
+     'https://github.com/rubygems/guides.git',
      '../guides.rubygems.org'
 end
 
@@ -214,20 +322,17 @@ namespace 'guides' do
   desc 'Updates and publishes the guides for the just-released RubyGems'
   task 'publish'
 
-  on_master = `git branch --list master`.strip == '* master'
-  on_master = true if ENV['FORCE']
-
   task 'publish' => %w[
     guides:pull
     guides:update
     guides:commit
     guides:push
-  ] if on_master
+  ]
 end
 
 directory '../blog.rubygems.org' do
   sh 'git', 'clone',
-     'git@github.com:rubygems/rubygems.github.com.git',
+    'https://github.com/rubygems/rubygems.github.io.git',
      '../blog.rubygems.org'
 end
 
@@ -237,18 +342,28 @@ namespace 'blog' do
   checksums = ''
 
   task 'checksums' => 'package' do
-    require 'digest'
-    Dir['pkg/*{tgz,zip,gem}'].map do |file|
-      digest = Digest::SHA256.new
+    require 'net/http'
+    Dir['pkg/*{tgz,zip,gem}'].each do |file|
+      digest = OpenSSL::Digest::SHA256.file(file).hexdigest
+      basename = File.basename(file)
 
-      open file, 'rb' do |io|
-        while chunk = io.read(65536) do
-          digest.update chunk
+      checksums << "* #{basename}  \n"
+      checksums << "  #{digest}\n"
+
+      release_url = URI("https://rubygems.org/#{file.end_with?("gem") ? "gems" : "rubygems"}/#{basename}")
+      response = Net::HTTP.get_response(release_url)
+
+      if response.is_a?(Net::HTTPSuccess)
+        released_digest = OpenSSL::Digest::SHA256.hexdigest(response.body)
+
+        if digest != released_digest
+          abort "Checksum of #{file} (#{digest}) doesn't match checksum of released package at #{release_url} (#{released_digest})"
         end
+      elsif response.is_a?(Net::HTTPForbidden)
+        abort "#{basename} has not been yet uploaded to rubygems.org"
+      else
+        abort "Error fetching released package to verify checksums: #{response}\n#{response.body}"
       end
-
-      checksums << "* #{File.basename(file)}  \n"
-      checksums << "  #{digest.hexdigest}\n"
     end
   end
 
@@ -266,50 +381,8 @@ namespace 'blog' do
     name  = `git config --get user.name`.strip
     email = `git config --get user.email`.strip
 
-    history = File.read 'History.txt'
-
-    history.force_encoding Encoding::UTF_8
-
-    _, change_log, = history.split %r%^===\s*\d.*%, 3
-
-    change_types = []
-
-    lines = change_log.strip.lines
-    change_log = []
-
-    while line = lines.shift do
-      case line
-      when /(^[A-Z].*)/ then
-        change_types << $1
-        change_log << "_#{$1}_\n"
-      when /^\*/ then
-        entry = [line.strip]
-
-        while /^  \S/ =~ lines.first do
-          entry << lines.shift.strip
-        end
-
-        change_log << "#{entry.join ' '}\n"
-      else
-        change_log << line
-      end
-    end
-
-    change_log = change_log.join
-
-    change_types = change_types.map do |change_type|
-      change_type.downcase.tr '^a-z ', ''
-    end
-
-    last_change_type = change_types.pop
-
-    if change_types.empty?
-      change_types = ''
-    else
-      change_types = change_types.join(', ') << ' and '
-    end
-
-    change_types << last_change_type
+    require_relative "util/changelog"
+    history = Changelog.for_rubygems(v.to_s)
 
     require 'tempfile'
 
@@ -322,24 +395,21 @@ author: #{name}
 author_email: #{email}
 ---
 
-RubyGems #{v} includes #{change_types}.
+RubyGems #{v} includes #{history.change_types_for_blog}.
 
 To update to the latest RubyGems you can run:
 
     gem update --system
 
-If you need to upgrade or downgrade please follow the [how to upgrade/downgrade
-RubyGems][upgrading] instructions.  To install RubyGems by hand see the
-[Download RubyGems][download] page.
+To install RubyGems by hand see the [Download RubyGems][download] page.
 
-#{change_log}
+#{history.release_notes_for_blog.join("\n")}
 
 SHA256 Checksums:
 
 #{checksums}
 
-[download]: http://rubygems.org/pages/download
-[upgrading]: http://docs.seattlerb.org/rubygems/UPGRADING_rdoc.html
+[download]: https://rubygems.org/pages/download
 
       ANNOUNCEMENT
 
@@ -376,26 +446,42 @@ end
 
 # Misc Tasks ---------------------------------------------------------
 
+module Rubygems
+  class ProjectFiles
+    def self.all
+      files = []
+      exclude = %r{\A(?:\.|bundler/(?!lib|exe|[^/]+\.md|bundler.gemspec)|util/|Rakefile)}
+      tracked_files = `git ls-files`.split("\n")
+
+      tracked_files.each do |path|
+        next unless File.file?(path)
+        next if path =~ exclude
+        files << path
+      end
+
+      files.sort
+    end
+  end
+end
+
 desc "Update the manifest to reflect what's on disk"
 task :update_manifest do
-  files = []
-  exclude = %r[\.git|\./bundler/(?!lib|man|exe|[^/]+\.md|bundler.gemspec)]ox
-  tracked_files = `git ls-files --recurse-submodules`.split("\n").map {|f| "./#{f}" }
+  File.open('Manifest.txt', 'w') {|f| f.puts(Rubygems::ProjectFiles.all) }
+end
 
-  tracked_files.each do |path|
-    next unless File.file?(path)
-    next if path =~ exclude
-    files << path[2..-1]
+desc "Check the manifest is up to date"
+task :check_manifest do
+  if File.read("Manifest.txt").split != Rubygems::ProjectFiles.all
+    abort "Manifest is out of date. Run `rake update_manifest` to sync it"
   end
-  File.open('Manifest.txt', 'w') {|f| f.puts(files.sort) }
+end
+
+desc "Update License list from SPDX.org"
+task :update_licenses do
+  load "util/generate_spdx_license_list.rb"
 end
 
 namespace :bundler do
-  desc "Initialize bundler submodule"
-  task :checkout do
-    sh "git submodule update --init"
-  end
-
   task :build_metadata do
     chdir('bundler') { sh "rake build_metadata" }
   end

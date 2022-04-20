@@ -2,15 +2,8 @@
 
 Contributions to RubyGems are made via GitHub pull requests, which must be
 approved by a project committer other than the author. To approve a PR, a
-maintainer can leave a comment including the text "@bundlerbot r+", indicating
-that they have reviewed the PR and approve it. Bundlerbot will then
-automatically create a merge commit, test the merge, and land the PR if the
-merge commit passes the tests.
-
-This process guarantees that our release branches always have passing tests,
-and reduces siloing of information to a single contributor. For a full list of
-possible commands, see [the Bundlerbot
-documentation](https://bors.tech/documentation/).
+maintainer can use GitHubs PR review feature. After that, if the original author
+is happy to merge the PR, she can press the merge button.
 
 ## Long-Term Support
 
@@ -52,7 +45,7 @@ at version 2.7, so when RubyGems 2.8 is released, it will only support Ruby
 Releases of new versions should follow these steps, to ensure the process is
 smooth and no needed steps are missed.
 
-### Steps for security releases
+### Recommendations for security releases
 
 *   Obtain CVE numbers as needed from HackerOne or Red Hat.
 *   Agree on a release date with ruby-core, so patches can be backported to
@@ -62,15 +55,30 @@ smooth and no needed steps are missed.
 *   Continue with the regular release process below.
 
 
-### Steps for all releases
+### Steps for patch releases
 
-*   Confirm milestone on GitHub is complete
-*   Update History.txt
-*   Update Manifest.txt
-*   Create and push git tag
-*   Create and push `rubygems-update` gem and tgz
-*   Publish blog post
+*   Confirm all PRs that you want backported are properly tagged with `rubygems:
+    <type>` or `bundler: <type>` labels at GitHub.
+*   Run `rake prepare_release[<target_version>]`, create a PR and merge it
+    to the stable branch once CI passes.
+*   Switch to the stable branch and pull the PR just merged.
+*   Release `bundler` with `(cd bundler && bin/rake release)`.
+*   Release `rubygems` with `rake release`.
 
+### Steps for minor and major releases
+
+*   Confirm all PRs that you want listed in changelogs are properly tagged with
+    `rubygems: <type>` or `bundler: <type>` labels at GitHub.
+*   Run `rake prepare_release[<target_version>]`.
+*   Add the new stable branch `x.y` where `x.y` are the first two components of
+    the rubygems version being released to the CI workflows as an extra commit
+    on top of what the `prepare_release` task generated.
+*   Create a PR to the main branch, and merge it once CI passes.
+*   From the main branch, cut a new stable branch with `git pull && git checkout
+    -b x.y`.
+*   Push the stable branch and wait for CI to be green.
+*   Release `bundler` with `(cd bundler && bin/rake release)`.
+*   Release `rubygems` with `rake release`.
 
 ## Committer Access
 

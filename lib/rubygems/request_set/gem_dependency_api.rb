@@ -31,7 +31,6 @@
 # See `gem help install` and `gem help gem_dependencies` for further details.
 
 class Gem::RequestSet::GemDependencyAPI
-
   ENGINE_MAP = { # :nodoc:
     :jruby        => %w[jruby],
     :jruby_18     => %w[jruby],
@@ -89,7 +88,7 @@ class Gem::RequestSet::GemDependencyAPI
     :truffleruby  => Gem::Platform::RUBY,
     :x64_mingw    => x64_mingw,
     :x64_mingw_20 => x64_mingw,
-    :x64_mingw_21 => x64_mingw
+    :x64_mingw_21 => x64_mingw,
   }.freeze
 
   gt_eq_0        = Gem::Requirement.new '>= 0'
@@ -206,7 +205,7 @@ class Gem::RequestSet::GemDependencyAPI
     @git_set            = @set.git_set
     @git_sources        = {}
     @installing         = false
-    @requires           = Hash.new { |h, name| h[name] = [] }
+    @requires           = Hash.new {|h, name| h[name] = [] }
     @vendor_set         = @set.vendor_set
     @source_set         = @set.source_set
     @gem_sources        = {}
@@ -235,7 +234,7 @@ class Gem::RequestSet::GemDependencyAPI
     return unless (groups & @without_groups).empty?
 
     dependencies.each do |dep|
-      @set.gem dep.name, *dep.requirement
+      @set.gem dep.name, *dep.requirement.as_list
     end
   end
 
@@ -280,7 +279,7 @@ class Gem::RequestSet::GemDependencyAPI
   # Loads the gem dependency file and returns self.
 
   def load
-    instance_eval File.read(@path).untaint, @path, 1
+    instance_eval File.read(@path).tap(&Gem::UNTAINT), @path, 1
 
     self
   end
@@ -380,7 +379,7 @@ class Gem::RequestSet::GemDependencyAPI
         Gem::Requirement.create requirements
       end
 
-    return unless gem_platforms options
+    return unless gem_platforms name, options
 
     groups = gem_group name, options
 
@@ -533,7 +532,7 @@ Gem dependencies file #{@path} includes git reference for both ref/branch and ta
   # Handles the platforms: option from +options+.  Returns true if the
   # platform matches the current platform.
 
-  def gem_platforms(options) # :nodoc:
+  def gem_platforms(name, options) # :nodoc:
     platform_names = Array(options.delete :platform)
     platform_names.concat Array(options.delete :platforms)
     platform_names.concat @current_platforms if @current_platforms
@@ -544,7 +543,7 @@ Gem dependencies file #{@path} includes git reference for both ref/branch and ta
       raise ArgumentError, "unknown platform #{platform_name.inspect}" unless
         platform = PLATFORM_MAP[platform_name]
 
-      next false unless Gem::Platform.match platform
+      next false unless Gem::Platform.match_gem? platform, name
 
       if engines = ENGINE_MAP[platform_name]
         next false unless engines.include? Gem.ruby_engine
@@ -782,7 +781,7 @@ Gem dependencies file #{@path} includes git reference for both ref/branch and ta
   # You may also provide +engine:+ and +engine_version:+ options to restrict
   # this gem dependencies file to a particular ruby engine and its engine
   # version.  This matching is performed by using the RUBY_ENGINE and
-  # engine_specific VERSION constants.  (For JRuby, JRUBY_VERSION).
+  # RUBY_ENGINE_VERSION constants.
 
   def ruby(version, options = {})
     engine         = options[:engine]
@@ -809,11 +808,9 @@ Gem dependencies file #{@path} includes git reference for both ref/branch and ta
     end
 
     if engine_version
-      my_engine_version = Object.const_get "#{Gem.ruby_engine.upcase}_VERSION"
-
-      if engine_version != my_engine_version
+      if engine_version != RUBY_ENGINE_VERSION
         message =
-          "Your Ruby engine version is #{Gem.ruby_engine} #{my_engine_version}, " +
+          "Your Ruby engine version is #{Gem.ruby_engine} #{RUBY_ENGINE_VERSION}, " +
           "but your #{gem_deps_file} requires #{engine} #{engine_version}"
 
         raise Gem::RubyVersionMismatch, message
@@ -844,5 +841,4 @@ Gem dependencies file #{@path} includes git reference for both ref/branch and ta
 
     Gem.sources << url
   end
-
 end

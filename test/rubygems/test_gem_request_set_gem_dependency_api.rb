@@ -1,9 +1,8 @@
 # frozen_string_literal: true
-require 'rubygems/test_case'
+require_relative 'helper'
 require 'rubygems/request_set'
 
 class TestGemRequestSetGemDependencyAPI < Gem::TestCase
-
   def setup
     super
 
@@ -20,35 +19,28 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
   end
 
   def with_engine_version(name, version)
-    engine               = RUBY_ENGINE if Object.const_defined? :RUBY_ENGINE
-    engine_version_const = "#{Gem.ruby_engine.upcase}_VERSION"
-    engine_version       = Object.const_get engine_version_const
+    engine = RUBY_ENGINE
+    engine_version = RUBY_ENGINE_VERSION
 
-    Object.send :remove_const, :RUBY_ENGINE         if engine
-    Object.send :remove_const, engine_version_const if name == 'ruby' and
-      Object.const_defined? engine_version_const
+    Object.send :remove_const, :RUBY_ENGINE
+    Object.send :remove_const, :RUBY_ENGINE_VERSION
 
-    new_engine_version_const = "#{name.upcase}_VERSION"
-    Object.const_set :RUBY_ENGINE,             name    if name
-    Object.const_set new_engine_version_const, version if version
+    Object.const_set :RUBY_ENGINE, name if name
+    Object.const_set :RUBY_ENGINE_VERSION, version if version
 
     Gem.instance_variable_set :@ruby_version, Gem::Version.new(version)
 
-    yield
+    begin
+      yield
+    ensure
+      Object.send :remove_const, :RUBY_ENGINE if name
+      Object.send :remove_const, :RUBY_ENGINE_VERSION if version
 
-  ensure
-    Object.send :remove_const, :RUBY_ENGINE             if name
-    Object.send :remove_const, new_engine_version_const if version
+      Object.const_set :RUBY_ENGINE, engine
+      Object.const_set :RUBY_ENGINE_VERSION, engine_version
 
-    Object.send :remove_const, engine_version_const     if name == 'ruby' and
-      Object.const_defined? engine_version_const
-
-    Object.const_set :RUBY_ENGINE,         engine         if engine
-    Object.const_set engine_version_const, engine_version unless
-      Object.const_defined? engine_version_const
-
-    Gem.send :remove_instance_variable, :@ruby_version if
-      Gem.instance_variables.include? :@ruby_version
+      Gem.send :remove_instance_variable, :@ruby_version
+    end
   end
 
   def test_gempspec_with_multiple_runtime_deps
@@ -56,8 +48,8 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
       s.add_runtime_dependency 'bar', '>= 1.6.0', '< 1.6.4'
     end
     @gda.gemspec
-    assert_equal %w{ foo bar }.sort, @set.dependencies.map(&:name).sort
-    bar = @set.dependencies.find { |d| d.name == 'bar' }
+    assert_equal %w[ foo bar ].sort, @set.dependencies.map(&:name).sort
+    bar = @set.dependencies.find {|d| d.name == 'bar' }
     assert_equal [["<", Gem::Version.create('1.6.4')],
                   [">=", Gem::Version.create('1.6.0')]], bar.requirement.requirements.sort
   end
@@ -89,7 +81,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
   def test_gem_duplicate
     @gda.gem 'a'
 
-    _, err = capture_io do
+    _, err = capture_output do
       @gda.gem 'a'
     end
 
@@ -137,7 +129,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
   end
 
   def test_gem_git_branch
-    _, err = capture_io do
+    _, err = capture_output do
       @gda.gem 'a', :git => 'git/a', :branch => 'other', :tag => 'v1'
     end
     expected = "Gem dependencies file gem.deps.rb includes git reference for both ref/branch and tag but only ref/branch is used."
@@ -158,7 +150,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
   end
 
   def test_gem_git_ref
-    _, err = capture_io do
+    _, err = capture_output do
       @gda.gem 'a', :git => 'git/a', :ref => 'abcd123', :branch => 'other'
     end
     expected = "Gem dependencies file gem.deps.rb includes git reference for both ref and branch but only ref is used."
@@ -396,7 +388,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
   end
 
   def test_gem_platforms_unknown
-    e = assert_raises ArgumentError do
+    e = assert_raise ArgumentError do
       @gda.gem 'a', :platforms => :unknown
     end
 
@@ -463,7 +455,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
     gda = @GDA.new @set, nil
     gda.gem name
 
-    e = assert_raises ArgumentError do
+    e = assert_raise ArgumentError do
       gda.gem name, :path => directory
     end
 
@@ -474,7 +466,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
     gda.instance_variable_set :@vendor_set, @vendor_set
     gda.gem name, :path => directory
 
-    e = assert_raises ArgumentError do
+    e = assert_raise ArgumentError do
       gda.gem name
     end
 
@@ -497,7 +489,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
       groups = @gda.send :gem_group, 'a', :group => :b, :groups => [:c, :d]
     end
 
-    assert_equal [:a, :b, :c, :d], groups.sort_by { |group| group.to_s }
+    assert_equal [:a, :b, :c, :d], groups.sort_by {|group| group.to_s }
   end
 
   def test_gemspec
@@ -525,8 +517,8 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
   def test_gemspec_bad
     FileUtils.touch 'a.gemspec'
 
-    e = assert_raises ArgumentError do
-      capture_io do
+    e = assert_raise ArgumentError do
+      capture_output do
         @gda.gemspec
       end
     end
@@ -558,7 +550,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
       s.add_dependency 'c', 3
     end
 
-    e = assert_raises ArgumentError do
+    e = assert_raise ArgumentError do
       @gda.gemspec
     end
 
@@ -590,7 +582,7 @@ class TestGemRequestSetGemDependencyAPI < Gem::TestCase
   end
 
   def test_gemspec_none
-    e = assert_raises ArgumentError do
+    e = assert_raise ArgumentError do
       @gda.gemspec
     end
 
@@ -666,14 +658,14 @@ end
     gda.send :pin_gem_source, 'a'
     gda.send :pin_gem_source, 'a'
 
-    e = assert_raises ArgumentError do
+    e = assert_raise ArgumentError do
       gda.send :pin_gem_source, 'a', :path, 'vendor/a'
     end
 
     assert_equal "duplicate source path: vendor/a for gem a",
                  e.message
 
-    e = assert_raises ArgumentError do
+    e = assert_raise ArgumentError do
       gda.send :pin_gem_source, 'a', :git, 'git://example/repo.git'
     end
 
@@ -778,7 +770,7 @@ end
 
   def test_ruby_engine_mismatch_engine
     with_engine_version 'ruby', '2.0.0' do
-      e = assert_raises Gem::RubyVersionMismatch do
+      e = assert_raise Gem::RubyVersionMismatch do
         @gda.ruby RUBY_VERSION, :engine => 'jruby', :engine_version => '1.7.4'
       end
 
@@ -789,7 +781,7 @@ end
 
   def test_ruby_engine_mismatch_version
     with_engine_version 'jruby', '1.7.6' do
-      e = assert_raises Gem::RubyVersionMismatch do
+      e = assert_raise Gem::RubyVersionMismatch do
         @gda.ruby RUBY_VERSION, :engine => 'jruby', :engine_version => '1.7.4'
       end
 
@@ -799,7 +791,7 @@ end
   end
 
   def test_ruby_engine_no_engine_version
-    e = assert_raises ArgumentError do
+    e = assert_raise ArgumentError do
       @gda.ruby RUBY_VERSION, :engine => 'jruby'
     end
 
@@ -808,7 +800,7 @@ end
   end
 
   def test_ruby_mismatch
-    e = assert_raises Gem::RubyVersionMismatch do
+    e = assert_raise Gem::RubyVersionMismatch do
       @gda.ruby '1.8.0'
     end
 
@@ -837,23 +829,19 @@ end
 
   def test_with_engine_version
     version = RUBY_VERSION
-    engine  = Gem.ruby_engine
-
-    engine_version_const = "#{Gem.ruby_engine.upcase}_VERSION"
-    engine_version       = Object.const_get engine_version_const
+    engine = Gem.ruby_engine
+    engine_version = RUBY_ENGINE_VERSION
 
     with_engine_version 'other', '1.2.3' do
       assert_equal 'other', Gem.ruby_engine
-      assert_equal '1.2.3', OTHER_VERSION
+      assert_equal '1.2.3', RUBY_ENGINE_VERSION
 
-      assert_equal version, RUBY_VERSION if engine
+      assert_equal version, RUBY_VERSION
     end
 
     assert_equal version, RUBY_VERSION
     assert_equal engine,  Gem.ruby_engine
 
-    assert_equal engine_version, Object.const_get(engine_version_const) if
-      engine
+    assert_equal engine_version, RUBY_ENGINE_VERSION if engine
   end
-
 end unless Gem.java_platform?
