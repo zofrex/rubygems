@@ -299,7 +299,7 @@ RSpec.describe "bundle install with specific platforms" do
     end
 
     expect(err).to include <<~ERROR.rstrip
-      Could not find gem 'sorbet-static (= 0.5.6433) arm64-darwin-21' in rubygems repository #{file_uri_for(gem_repo2)}/ or installed locally.
+      Could not find gem 'sorbet-static (= 0.5.6433)' with platform 'arm64-darwin-21' in rubygems repository #{file_uri_for(gem_repo2)}/ or installed locally.
 
       The source contains the following gems matching 'sorbet-static (= 0.5.6433)':
         * sorbet-static-0.5.6433-universal-darwin-20
@@ -325,7 +325,7 @@ RSpec.describe "bundle install with specific platforms" do
     end
 
     expect(err).to include <<~ERROR.rstrip
-      Could not find gem 'sorbet-static (= 0.5.6433) arm64-darwin-21', which is required by gem 'sorbet (= 0.5.6433)', in rubygems repository #{file_uri_for(gem_repo2)}/ or installed locally.
+      Could not find gem 'sorbet-static (= 0.5.6433)' with platform 'arm64-darwin-21', which is required by gem 'sorbet (= 0.5.6433)', in rubygems repository #{file_uri_for(gem_repo2)}/ or installed locally.
 
       The source contains the following gems matching 'sorbet-static (= 0.5.6433)':
         * sorbet-static-0.5.6433-universal-darwin-20
