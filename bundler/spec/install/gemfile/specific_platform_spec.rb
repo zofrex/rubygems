@@ -333,6 +333,27 @@ RSpec.describe "bundle install with specific platforms" do
     ERROR
   end
 
+  it "does not resolve if ruby platform is forced and there are only platform specific variants available" do
+    build_repo4 do
+      build_gem("sorbet-static", "0.5.9889") {|s| s.platform = Gem::Platform.local }
+    end
+
+    gemfile <<~G
+      source "#{file_uri_for(gem_repo4)}"
+
+      gem "sorbet-static", "0.5.9889"
+    G
+
+    bundle "lock", :raise_on_error => false, :env => { "BUNDLE_FORCE_RUBY_PLATFORM" => "true" }
+
+    expect(err).to include <<~ERROR.rstrip
+      Could not find gem 'sorbet-static (= 0.5.9889)' with platform 'ruby' in rubygems repository #{file_uri_for(gem_repo4)}/ or installed locally.
+
+      The source contains the following gems matching 'sorbet-static (= 0.5.9889)':
+        * sorbet-static-0.5.9889-#{Gem::Platform.local}
+    ERROR
+  end
+
   private
 
   def setup_multiplatform_gem
