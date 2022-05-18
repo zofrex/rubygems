@@ -52,6 +52,7 @@ PLATFORMS
   java
   ruby
   universal-java-11
+  universal-java-17
   x64-mingw32
   x86_64-darwin-20
   x86_64-linux
